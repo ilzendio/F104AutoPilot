@@ -1,0 +1,226 @@
+
+
+
+%% TRANSFER FUNCTION CREATION
+
+W = 16300; %lb \\
+Ix = 3549; %slug.ft^2 \\
+Iy = 58611; %slug.ft^2\\
+Iz = 59669; %slug.ft^2\\
+Ixz = 0;
+%LONGITUDINAL(Sea Level)\\
+g = 32.2;
+Mach = 0.257  ;
+ro = 0.002337;
+Cl = 0.735;
+Cd = 0.263;
+Cd_u = 0;
+Cl_a = 3.44;
+Cd_a = 0.45;
+Cm_a = -0.64;
+Cl_adot = 0;
+Cm_adot = -1.6;
+Cl_q = 0;
+Cm_q = -5.8;
+Cl_M = 0;
+Cd_M = 0;
+Cm_M = 0;
+Cl_deltaE = 0.68;
+Cm_deltaE = -1.46;
+%LATERAL(Sea Level)\\
+Cy_B = -1.17;
+Cl_B = -0.175;
+Cn_B = 0.5;
+Cl_p = -0.285;
+Cn_p = -0.14;
+Cl_r = 0.265;
+Cn_r = -0.75;
+Cl_deltaa =0.039;
+Cn_deltaa =0.0042;
+Cy_deltar =0.208;
+Cl_deltar =0.045;
+Cn_deltar =-0.16;
+S = 196.1;
+b = 21.94;
+c = 9.55;
+u0 = Mach * 1116.4;
+m = W/g;
+Q = 1/2 * ro * u0^2;
+%MATRIX VALUE CALCULATION\\
+%LONGITUDINAL\\
+Xu = -(Cd_u + 2*Cd)*Q*S / (u0*m);
+Xw = -(Cd_a - Cl)*Q*S / (u0*m);
+Xq = 0;
+X_deltae = 0;
+Zu = -(0 + 2*Cl)*Q*S / (u0*m);
+Zw = -(Cl_a + Cd)*Q*S / (u0*m);
+Za = u0*Zw;
+Zadot =0;
+Zq = 0;
+Zwdot = 0;
+Z_deltae = -(Cl_deltaE*Q*S)/m;
+Mu = 0;
+Mw = (Cm_a*Q*S*c)/(u0*Iy);
+Mwdot = Cm_adot*c*Q*S*c/(2*u0*u0*Iy);
+Ma = u0*Mw;
+Madot = u0*Mwdot;
+Mq = (Cm_q*c*Q*S*c)/(2*u0*Iy);
+MdeltaE= Cm_deltaE*(Q*S*c)/Iy;
+%LATERAL\\
+YB = Q*S*Cy_B/m;
+Yp = 0;
+Yr = 0;
+Y_deltar = Q*S*Cy_deltar/m;
+Y_deltaa = 0;
+N_deltaa = Cn_deltaa*Q*S*b/Iz;
+N_deltar = Cn_deltar*Q*S*b/Iz;
+NB = Q*S*b*Cn_B/Iz;
+Np = Q*S*b^2*Cn_p/(2*Iz*u0);
+Nr = Q*S*b^2*Cn_r/(2*Iz*u0);
+L_deltaa = Q*S*b*Cl_deltaa/Ix;
+L_deltar = Q*S*b*Cl_deltar/Ix;
+LB = Q*S*b*Cl_B/Ix;
+Lp = Q*S*b^2*Cl_p/(2*Ix*u0);
+Lr = Q*S*b^2*Cl_r/(2*Ix*u0);
+
+    
+    
+%LONGITUDINAL\\
+A_long = [Xu,Xw,0,-g;Zu,Zw,u0,0;(Mu+Mwdot*Zu),(Mw+Mwdot*Zw),(Mq + Mwdot*u0),0;0,0,1,0]
+B_long = [X_deltae;Z_deltae;MdeltaE+Mwdot*Z_deltae;0]
+%LATERAL\\
+A_lat = [YB/u0,Yp/u0,-(1-Yr/u0), g*cos(0)/u0; LB,Lp,Lr,0;NB,Np,Nr,0;0,1,0,0]
+B_lat = [0,Y_deltar/u0; L_deltaa,L_deltar;N_deltaa,N_deltar;0,0]
+%%LONGITUDINAL APPROXIMATIONS
+%SHORT PERIOD 
+A_short = [Za/u0, 1; Ma + Madot*Za/u0, Mq + Madot];
+%LONG PERIOD\\
+A_longit = [Xu, -g; -Zu/u0, 0];
+%%LATERAL APPROXIMATIONS\\
+%DUTCH ROLL\\
+A_dutch = [YB/u0 , -(1- Yr/u0); NB,Nr];
+%SPIRAL\\
+spiralRoot = (LB*Nr - Lr*NB)/LB;
+%ROLL \\
+rollRoot = Lp;
+%LONGITUDINAL\\
+C_longU = [1,0,0,0]; %U VELOCITY\\
+C_longW = [0,1,0,0]; %W VELOCITY\\
+C_longQ = [0,0,1,0]; %PITCH RATE\\
+C_longBeta = [0,0,0,1]; %PITCH ANGLE\\
+D_long = 0;
+[A_elevatorU,B_elevatorU] = ss2tf(A_long,B_long,C_longU,D_long); %U VELOCITY
+[A_elevatorW,B_elevatorW] = ss2tf(A_long,B_long,C_longW,D_long); %W VELOCITY
+[A_elevatorPitchRate,B_elevatorPitchRate] = ss2tf(A_long,B_long,C_longQ,D_long); %PITCH RATE
+[A_elevatorPitchAngle,B_elevatorPitchAngle] = ss2tf(A_long,B_long,C_longBeta,D_long); %PITCH ANGLE
+
+%LATERAL
+C_latB = [1 0 0 0];%SIDESLIP
+C_latP = [0 1 0 0];%ROLL RATE
+C_latR = [0 0 1 0];%YAW RATE
+C_latFi = [0 0 0 1];%ROLL ANGLE
+D_lat = 0;
+
+[A_aileronSideslip,B_aileronSideslip] = ss2tf(A_lat,B_lat(:,1),C_latB,D_lat); %SIDESLIP(AILERON)
+[A_aileronRollRate,B_aileronRollRate] = ss2tf(A_lat,B_lat(:,1),C_latP,D_lat); % ROLL RATE(AILERON)
+[A_aileronYawRate,B_aileronYawRate] = ss2tf(A_lat,B_lat(:,1),C_latR,D_lat); % YAW RATE(AILERON)
+[A_aileronRollAngle,B_aileronRollAngle] = ss2tf(A_lat,B_lat(:,1),C_latFi,D_lat); % ROLL ANGLE(AILERON)
+
+[A_rudderSideslip,B_rudderSideslip] = ss2tf(A_lat,B_lat(:,2),C_latB,D_lat); %SIDESLIP(RUDDER)
+[A_rudderRollRate,B_rudderRollRate] = ss2tf(A_lat,B_lat(:,2),C_latP,D_lat); %ROLL RATE(RUDDER)
+[A_rudderYawRate,B_rudderYawRate] = ss2tf(A_lat,B_lat(:,2),C_latR,D_lat); %YAW RATE(RUDDER)
+[A_rudderRollAngle,B_rudderRollAngle] = ss2tf(A_lat,B_lat(:,2),C_latFi,D_lat); %ROLL ANGLE(RUDDER)
+
+%% ROOT CALCULATIONS
+
+%For Longitudinal Equations
+%Eigenvalues of A
+rootsLong = eig(A_long);
+phugoidRoots = rootsLong([3:4]);
+shortPeriodRoots = rootsLong([1:2]);
+
+%Approximations
+%Short-Period
+rootsShort = eig(A_short);
+%Long-Term
+rootsLong = eig(A_longit);
+%% For Laterla Equations
+%Eigenvalues of A
+rootsLat = eig(A_lat);
+dutchRollRoots = rootsLat([1:2]);
+rollRoots = rootsLat(3);
+spiralRoots = rootsLat(4);
+
+%Approximations
+%Dutch Roll
+rootsDutch = eig(A_dutch);
+%Spiral
+rootsSpiral = spiralRoot;
+%Roll
+rootsRoll = rollRoot;
+
+%FOR LONGITUDINAL
+s = tf("s");
+controller =-10/(s+10);
+%% SHORT MODE
+DA = 1;
+DB = -(Mq + Madot + (Za/u0));
+DC = (Za * Mq / u0) - Ma;
+
+%Angle of Attack
+NAa = Z_deltae/u0;
+NBa = MdeltaE - (Mq*Z_deltae/u0);
+AoAOverElevator = s*(NAa*s + NBa)/(DA * s^2 + DB * s + DC);
+sysAoA = controller*AoAOverElevator;
+%figure(1)
+%title("Root Locus of Inner Loop")
+%rlocus(sysAoA)
+KinnerAoA = 7.21;
+sysOuterAoA = sysAoA/(1+KinnerAoA*sysAoA);
+%figure(2)
+%rlocus(sysOuterAoA)
+%Pitch Rate
+NAq = MdeltaE + (Madot*Z_deltae/u0);
+NBq = (Ma*Z_deltae-MdeltaE*Za)/u0;
+PitchRateOverElevator = s*(NAq*s + NBq)/(DA * s^2 + DB * s + DC);
+
+sysPitch = controller*PitchRateOverElevator;
+%figure(3)
+%title("Root Locus of Inner Loop")
+%rlocus(sysPitch)
+KinnerPitch = 0.323;
+sysOuterPitch = sysPitch/(1+KinnerPitch*sysPitch);
+%figure(4)
+%title("Root Locus of Outer Loop")
+%rlocus(sysOuterPitch)
+%% PHUGOID MODE
+DA = 1;
+DB = -Xu;
+DC = -Zu*g/u0;
+
+%U Velocity
+NAu = X_deltae;
+NBu = g*Z_deltae/u0;
+UOverElevator = s*(NAu*s + NBu)/(DA*s^2 + DB*s + DC);
+sysU = controller*UOverElevator;
+%figure(5)
+%rlocus(sysU)
+KinnerU = 1.01;
+sysOuterU = sysU/(1+KinnerU*sysU);
+%figure(6)
+%rlocus(sysOuterU)
+
+%Pitch Angle
+NAt = -Z_deltae/u0;
+NBt = (Xu*Z_deltae-Zu*X_deltae)/u0;
+TetaOverElevator = (s)*(NAt*s + NBt)/(DA*s^2 + DB*s + DC);
+
+sysT = -controller*TetaOverElevator;
+%figure(7)
+%rlocus(sysT)
+KinnerT = 28.8;
+sysOuterT = sysT/(1+KinnerT*sysT);
+%figure(8)
+%rlocus(sysOuterT)
+
+
